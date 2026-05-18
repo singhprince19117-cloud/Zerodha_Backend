@@ -9,6 +9,11 @@ const PositionsSchema = new Schema({
     net: String,
     day: String,
     isLoss: Boolean,
+
+    user: {
+        type: Schema.Types.ObjectId,
+        ref: "users",
+    }
 }, { timestamps: true });
 
 module.exports = { PositionsSchema };
