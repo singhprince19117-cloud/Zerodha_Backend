@@ -8,6 +8,9 @@ const { PositionsModel } = require("./model/PositionsModel");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { OrdersModel } = require("./model/OrdersModel");
+const { UsersModel } = require("./model/UsersModel");
+const jwt = require("jsonwebtoken");
+const { isLoggedIn } = require("./middlware/auth.middleware");
 
 
 
@@ -25,19 +28,19 @@ app.use(cors());
 app.use(bodyParser.json());
 
 
-app.get("/allHoldings", async (req, res) => {
+app.get("/allHoldings", isLoggedIn, async (req, res) => {
     let allHoldings = await HoldingsModel.find({});
 
     res.json(allHoldings);
 });
 
-app.get("/allPositions", async (req, res) => {
+app.get("/allPositions", isLoggedIn, async (req, res) => {
     let allPositions = await PositionsModel.find({});
 
     res.json(allPositions);
 });
 
-app.post("/newOrder", async (req, res) => {
+app.post("/newOrder", isLoggedIn, async (req, res) => {
     let newOrder = new OrdersModel({
         name: req.body.name,
         qty: req.body.qty,
@@ -50,13 +53,13 @@ app.post("/newOrder", async (req, res) => {
     res.send("done");
 });
 
-app.get("/orders", async (req, res) => {
+app.get("/orders", isLoggedIn, async (req, res) => {
     let orders = await OrdersModel.find({});
 
     res.json(orders);
 });
 
-app.post("/sellOrder", async (req, res) => {
+app.post("/sellOrder", isLoggedIn, async (req, res) => {
     let ans = true;
 
     let qty = req.body.qty;
@@ -77,6 +80,71 @@ app.post("/sellOrder", async (req, res) => {
     }
 
     res.send("done");
+});
+
+app.post("/register", async (req, res) => {
+    const { name, email } = req.body;
+
+    const isExists = await UsersModel.findOne({ email });
+
+    if (isExists) {
+        return res.status(422).json({
+            message: "User already exists with this email",
+            status: "failed",
+        });
+    };
+
+    const user = new UsersModel(req.body);
+
+    user.save();
+
+    const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET,
+        { expiresIn: "3d" }
+    )
+
+    return res.status(201).json({
+        token,
+        user: {
+            _id: user._id,
+            email: email,
+            name: name
+        }
+    })
+});
+
+app.post("/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    const users = await UsersModel.findOne({ email });
+
+    if (!users) {
+        return res.json("Email is wrong");
+    }
+
+    const isValid = await users.comparePassword(password);
+
+    if (!isValid) {
+        return res.json("Password is wrong");
+    }
+
+    const token = jwt.sign(
+        { userId: users._id },
+        process.env.JWT_SECRET,
+        { expiresIn: "3d" }
+    )
+
+    res.cookie("token", token, { httpOnly: true });
+
+    res.status(200).json({
+        user: {
+            _id: users._id,
+            email: users.email,
+            name: users.name,
+        },
+        token
+    });
 })
 
 app.listen(port, () => {

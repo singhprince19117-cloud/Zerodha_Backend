@@ -6,7 +6,12 @@ const HoldingsSchema = new Schema({
     avg: Number,
     price: Number,
     net: String,
-    day: String
+    day: String,
+
+    user: {
+        type: Schema.Types.ObjectId,
+        ref: "users",
+    }
 }, { timestamps: true });
 
 
